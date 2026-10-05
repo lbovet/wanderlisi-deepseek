@@ -1,53 +1,82 @@
-// Minimal hello-world application scaffolded by dev-center.
-const APP_NAME = 'wanderlisi-deepseek';
+// Wanderlisi V2.0 — static frontend MVP server.
+//
+// The MVP has no database and no login: all hike data lives in the browser
+// (localStorage + IndexedDB). This server only serves the static app and a
+// health endpoint, which keeps local testing and Dokku deploys trivial.
+import { join, normalize, extname } from 'node:path';
+
+const APP_NAME = 'wanderlisi';
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+const PUBLIC_DIR = join(import.meta.dir, 'public');
 
-Bun.serve({
-  port: PORT,
-  fetch(req) {
-    const url = new URL(req.url);
-    if (url.pathname === '/health') {
-      return new Response('ok', { headers: { 'Content-Type': 'text/plain' } });
-    }
+const CONTENT_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.gpx': 'application/gpx+xml; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+};
 
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${APP_NAME}</title>
-  <style>
-    :root { color-scheme: dark; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: #0a0a0f;
-      color: #c8c8d4;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-    }
-    h1 {
-      font-size: 2.6rem;
-      letter-spacing: 0.06rem;
-      color: #fff;
-      text-shadow: 0 0 24px rgba(0, 229, 255, 0.35);
-    }
-    p { color: #6a6a7a; font-family: 'Courier New', monospace; }
-  </style>
-</head>
-<body>
-  <h1>${APP_NAME}</h1>
-  <p>hello world · served by dev-center</p>
-</body>
-</html>`;
+function contentType(path) {
+  return CONTENT_TYPES[extname(path).toLowerCase()] || 'application/octet-stream';
+}
 
-    return new Response(html, {
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    });
-  },
-});
+/** Resolve a request path safely inside PUBLIC_DIR (blocks traversal). */
+export function resolvePublicPath(pathname) {
+  const clean = decodeURIComponent(pathname.split('?')[0]);
+  const relative = clean === '/' ? 'index.html' : clean.replace(/^\/+/, '');
+  const resolved = normalize(join(PUBLIC_DIR, relative));
+  if (!resolved.startsWith(PUBLIC_DIR)) {
+    return null;
+  }
+  return resolved;
+}
 
-console.log(`${APP_NAME} serving on port ${PORT}`);
+async function serveFile(path) {
+  const file = Bun.file(path);
+  if (!(await file.exists())) return null;
+  return new Response(file, {
+    headers: { 'Content-Type': contentType(path), 'Cache-Control': 'no-cache' },
+  });
+}
+
+export function createServer(port = PORT) {
+  return Bun.serve({
+    port,
+    async fetch(req) {
+      const url = new URL(req.url);
+
+      if (url.pathname === '/health') {
+        return new Response('ok', { headers: { 'Content-Type': 'text/plain' } });
+      }
+
+      const path = resolvePublicPath(url.pathname);
+      if (!path) return new Response('Not found', { status: 404 });
+
+      const response = await serveFile(path);
+      if (response) return response;
+
+      // Single-page app routes fall back to index.html.
+      if (!extname(url.pathname)) {
+        const fallback = await serveFile(join(PUBLIC_DIR, 'index.html'));
+        if (fallback) return fallback;
+      }
+
+      return new Response('Not found', { status: 404 });
+    },
+  });
+}
+
+if (import.meta.main) {
+  createServer();
+  console.log(`${APP_NAME} serving on port ${PORT}`);
+}
