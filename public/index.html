@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Wanderlisi</title>
+
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32x32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="img/apple-icon-180x180.png" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="map" aria-label="Karte der Wanderungen"></div>
+
+      <header id="topbar">
+        <button id="menu-toggle" class="icon-btn" type="button" aria-label="Wanderungen anzeigen">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+        </button>
+
+        <a id="brand" href="#/" title="Wanderlisi">
+          <img src="img/head.png" alt="" class="brand-logo" />
+          <span class="brand-name">wanderlisi</span>
+        </a>
+
+        <div class="topbar-search">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input id="search-input" type="search" placeholder="Suchen…" aria-label="Wanderung suchen" />
+        </div>
+
+        <div class="segmented" id="status-filter" role="group" aria-label="Status filtern">
+          <button type="button" data-status="all" class="active">Alle</button>
+          <button type="button" data-status="done">Gemacht</button>
+          <button type="button" data-status="planned">Geplant</button>
+        </div>
+
+        <button id="fit-btn" class="icon-btn" type="button" title="Alle Wanderungen anzeigen">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+        </button>
+
+        <button id="settings-btn" class="icon-btn" type="button" title="Einstellungen">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 4.6 15a2 2 0 0 1 0-4 1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 11.5 4a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 22 11a2 2 0 0 1-.6 4Z" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>
+        </button>
+
+        <button id="new-btn" class="primary-btn" type="button">
+          <span aria-hidden="true">+</span> GPX importieren
+        </button>
+        <input id="gpx-input" type="file" accept=".gpx,application/gpx+xml" multiple hidden />
+      </header>
+
+      <aside id="list-panel" class="panel list-panel" aria-label="Wanderungsliste">
+        <div class="panel-header">
+          <h2>Wanderungen</h2>
+          <span id="hike-count" class="badge">0</span>
+          <button id="list-close" class="icon-btn" type="button" aria-label="Liste schliessen">✕</button>
+        </div>
+        <div id="hike-list" class="hike-list"></div>
+        <div id="empty-state" class="empty-state">
+          <p>Noch keine Wanderungen.</p>
+          <p class="muted">Importiere eine GPX-Datei, um zu starten.</p>
+        </div>
+      </aside>
+
+      <aside id="detail-panel" class="detail-panel" aria-label="Detailansicht">
+        <button id="detail-close" class="icon-btn detail-close" type="button" aria-label="Detailansicht schliessen">✕</button>
+        <div id="detail-content"></div>
+      </aside>
+
+      <div id="drop-overlay" class="drop-overlay">
+        <div class="drop-card">GPX-Datei zum Importieren hier ablegen</div>
+      </div>
+
+      <div id="toast-container" class="toast-container"></div>
+    </div>
+
+    <dialog id="editor-dialog" class="dialog editor-dialog">
+      <form id="editor-form" method="dialog">
+        <header class="dialog-header">
+          <h2 id="editor-title">Wanderung bearbeiten</h2>
+          <button type="button" id="editor-close" class="icon-btn" aria-label="Schliessen">✕</button>
+        </header>
+        <div class="dialog-body">
+          <label class="field">
+            <span>Titel</span>
+            <input id="edit-title" type="text" required maxlength="120" />
+          </label>
+
+          <div class="field-row">
+            <label class="field">
+              <span>Status</span>
+              <select id="edit-status">
+                <option value="planned">Noch nicht gemacht</option>
+                <option value="done">Gemacht</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Schwierigkeit</span>
+              <select id="edit-difficulty">
+                <option value="1">T1 · Wandern</option>
+                <option value="2">T2 · Bergwandern</option>
+                <option value="3">T3 · Anspruchsvolles Bergwandern</option>
+                <option value="4">T4 · Alpinwandern</option>
+                <option value="5">T5 · Anspruchsvolles Alpinwandern</option>
+                <option value="6">T6 · Schwieriges Alpinwandern</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field">
+            <div class="field-head">
+              <span>Beschreibung</span>
+              <button type="button" id="edit-ai-btn" class="ghost-btn">✨ Beschreibung mit KI erstellen</button>
+            </div>
+            <textarea id="edit-description" rows="5" placeholder="Kurze Beschreibung der Wanderung…"></textarea>
+          </div>
+
+          <div class="field">
+            <div class="field-head">
+              <span>Internetbilder</span>
+              <button type="button" id="edit-images-search" class="ghost-btn">Bilder suchen</button>
+            </div>
+            <div id="edit-web-images" class="image-grid"></div>
+          </div>
+
+          <div class="field">
+            <div class="field-head">
+              <span>Eigene Bilder</span>
+              <button type="button" id="edit-images-upload-btn" class="ghost-btn">Bilder hochladen</button>
+              <input id="edit-images-input" type="file" accept="image/*" multiple hidden />
+            </div>
+            <div id="edit-own-images" class="image-grid"></div>
+          </div>
+        </div>
+        <footer class="dialog-footer">
+          <button type="button" id="editor-delete" class="danger-btn">Löschen</button>
+          <div class="spacer"></div>
+          <button type="button" id="editor-cancel" class="ghost-btn">Abbrechen</button>
+          <button type="submit" id="editor-save" class="primary-btn">Speichern</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="settings-dialog" class="dialog settings-dialog">
+      <form method="dialog">
+        <header class="dialog-header">
+          <h2>Einstellungen</h2>
+          <button type="button" id="settings-close" class="icon-btn" aria-label="Schliessen">✕</button>
+        </header>
+        <div class="dialog-body">
+          <p class="muted">
+            Die KI-Beschreibung funktioniert offline mit einer lokalen Vorlage. Optional kann ein
+            eigener Endpunkt für ein Sprachmodell hinterlegt werden.
+          </p>
+          <label class="field">
+            <span>KI-Endpunkt (optional)</span>
+            <input id="settings-ai-endpoint" type="url" placeholder="https://…" />
+            <small class="muted">POST { hike } → { description }</small>
+          </label>
+          <p class="muted">Alle Daten liegen lokal in diesem Browser (localStorage + IndexedDB).</p>
+        </div>
+        <footer class="dialog-footer">
+          <div class="spacer"></div>
+          <button type="submit" id="settings-save" class="primary-btn">Speichern</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>

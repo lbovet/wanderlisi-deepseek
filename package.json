@@ -1,7 +1,11 @@
 {
-  "name": "wanderlisi-deepseek",
+  "name": "wanderlisi",
   "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Wanderlisi V2.0 — collect, plan and manage your hikes in Switzerland.",
   "scripts": {
-    "start": "bun index.js"
+    "start": "bun index.js",
+    "test": "bun test"
   }
 }
