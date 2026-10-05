@@ -1,0 +1,7 @@
+{
+  "name": "wanderlisi-deepseek",
+  "private": true,
+  "scripts": {
+    "start": "bun index.js"
+  }
+}
